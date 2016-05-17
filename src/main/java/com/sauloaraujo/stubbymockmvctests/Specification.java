@@ -25,10 +25,10 @@ public class Specification {
     @Setter
     @Getter    
     public static class Response {
-    	private int latency;
-        private int status;        
+        private Integer status;
+    	private Integer latency;        
         private Map<String, String> headers;
-        private String body;
+        private Object body;
         private String file;
     }    
 }

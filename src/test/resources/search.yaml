@@ -1,0 +1,11 @@
+- request:
+    method: GET
+    url: ^/project/search$
+  response:
+    status: 200
+    headers:
+      content-type: application/json+hal
+    body:
+      _links:
+        self:
+          href: http://localhost:8080/project/search

@@ -9,8 +9,11 @@ import java.util.Map.Entry;
 
 import org.apache.commons.io.IOUtils;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
+import org.springframework.test.web.servlet.result.MockMvcResultHandlers;
+import org.springframework.test.web.servlet.result.MockMvcResultMatchers;
 
 import com.fasterxml.jackson.core.JsonParseException;
 import com.fasterxml.jackson.databind.JsonMappingException;
@@ -33,6 +36,7 @@ public class StubbyMockMvc {
     	Request request = specification.getRequest();
     	
     	String url = request.getUrl();
+    	
     	String method = request.getMethod();
     	if ("DELETE".equals(method)) {
     		builder = MockMvcRequestBuilders.delete(url);
@@ -45,9 +49,11 @@ public class StubbyMockMvc {
     	} else if ("PATCH".equals(method)) {
     		builder = MockMvcRequestBuilders.patch(url);
     	} else if ("POST".equals(method)) {
-    		builder = MockMvcRequestBuilders.post(url);    		
+    		builder = MockMvcRequestBuilders.post(url);
     	} else if ("PUT".equals(method)) {
     		builder = MockMvcRequestBuilders.put(url);
+    	} else {
+    	    throw new RuntimeException("Unsupported method: " + method);
     	}
 
     	Map<String, String> query = request.getQuery();
@@ -79,7 +85,12 @@ public class StubbyMockMvc {
     		builder.content(content);
     	}
 
-    	mockMvc.perform(builder);
+    	ResultActions actions = mockMvc.perform(builder).andDo(MockMvcResultHandlers.print());
+    	
+    	Integer status = specification.getResponse().getStatus();
+    	if (status != null) {
+    	    actions.andExpect(MockMvcResultMatchers.status().is(status));
+    	}
     }
 
     public void execute(MockMvc mockMvc, String specificationsPath) throws Exception {
