@@ -4,7 +4,7 @@
   response:
     status: 200
     headers:
-      content-type: application/json+hal
+      content-type: application/hal+json;charset=UTF-8
     body:
       _links:
         self:
