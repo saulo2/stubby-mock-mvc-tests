@@ -22,7 +22,7 @@ public class ProjectController {
                 @RequestParam(required=false, name="size") Integer size) {
         ProjectSearchResource resource = new ProjectSearchResource();
 
-        resource.add(linkTo(methodOn(getClass()).search(name, description, tasks, page, size)).withSelfRel());
+        resource.add(linkTo(methodOn(getClass()).search(name, description, tasks, page, size)).withSelfRel().expand());
 
         return resource;
     }

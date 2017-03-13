@@ -34,7 +34,6 @@ public class Specification {
         public static class PostDeserializer extends JsonDeserializer<String> {
 			@Override
 			public String deserialize(JsonParser p, DeserializationContext ctxt) throws IOException, JsonProcessingException {
-				//System.out.println(p.getCodec().readTree(p).toString());
 		        return p.getCodec().readTree(p).toString();
 			}
         	

@@ -1,9 +1,9 @@
 package com.sauloaraujo.stubbymockmvctests;
 
+import org.springframework.hateoas.ResourceSupport;
+
 import lombok.Getter;
 import lombok.Setter;
-
-import org.springframework.hateoas.ResourceSupport;
 
 @Setter
 @Getter

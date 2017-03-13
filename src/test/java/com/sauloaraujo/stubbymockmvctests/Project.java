@@ -2,10 +2,10 @@ package com.sauloaraujo.stubbymockmvctests;
 
 import java.util.List;
 
+import org.springframework.scheduling.config.Task;
+
 import lombok.Getter;
 import lombok.Setter;
-
-import org.springframework.scheduling.config.Task;
 
 @Setter
 @Getter
