@@ -58,6 +58,6 @@ public class ProjectControllerTest {
     
 	@Test
 	public void search() throws Exception {    	    
-		new StubbyMockMvcTests().execute(mockMvc, URL_PREFIX, "", "src/test/resources/search.yaml");
+		StubbyMockMvcTests.execute(mockMvc, URL_PREFIX, "", "src/test/resources/search.yaml");
 	}
 }
