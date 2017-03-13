@@ -14,7 +14,10 @@ import java.util.Map;
 import java.util.Map.Entry;
 
 import org.apache.commons.io.IOUtils;
+import org.hamcrest.BaseMatcher;
+import org.hamcrest.Description;
 import org.hamcrest.FeatureMatcher;
+import org.hamcrest.core.IsNull;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
@@ -27,18 +30,21 @@ import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.type.CollectionType;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
+import com.linkedin.urls.Url;
+import com.linkedin.urls.detection.UrlDetector;
+import com.linkedin.urls.detection.UrlDetectorOptions;
 import com.sauloaraujo.stubbymockmvctests.Specification.Request;
 import com.sauloaraujo.stubbymockmvctests.Specification.Response;
 
-public class StubbyMockMvc {    
-    private List<Specification> read(String path) throws JsonParseException, JsonMappingException, IOException {
+public class StubbyMockMvcTests {
+    private static List<Specification> read(String path) throws JsonParseException, JsonMappingException, IOException {
     	File file = new File(path);
     	ObjectMapper mapper = new ObjectMapper(new YAMLFactory());
     	CollectionType type = mapper.getTypeFactory().constructCollectionType(Collection.class, Specification.class); 
 		return mapper.readValue(file, type);
     }
     
-    private <K, V> FeatureMatcher<Map<? extends K, ? extends V>, Integer> mapWithSize(int size) {
+    private static <K, V> FeatureMatcher<Map<? extends K, ? extends V>, Integer> mapWithSize(int size) {
         return new FeatureMatcher<Map<? extends K, ? extends V>, Integer>(equalTo(size), "a map with size", "size of the map") {
             @Override
             protected Integer featureValueOf(Map<? extends K, ? extends V> actual) {
@@ -50,12 +56,12 @@ public class StubbyMockMvc {
     private static final String URL_PREFIX = "^";
     private static final String URL_SUFFIX = "$";
 
-    private void verify(ResultActions actions, String path, Object expected) throws Exception {
+    private static void verify(ResultActions actions, String path, final Object expected) throws Exception {
         JsonPathResultMatchers actual = jsonPath(path);
-        actions.andExpect(actual.exists());
+        //actions.andExpect(actual.exists());
 
         if (expected == null) {
-            actions.andExpect(actual.value(null));
+        	actions.andExpect(actual.value(new IsNull<>()));
         } else {
             if (expected instanceof Boolean) {
                 actions.andExpect(actual.isBoolean());
@@ -65,18 +71,48 @@ public class StubbyMockMvc {
                 actions.andExpect(actual.value(expected));
             } else if (expected instanceof String) {
                 actions.andExpect(actual.isString());
-                actions.andExpect(actual.value(expected));
+                
+            	if (path.endsWith("href")) {
+            		actions.andExpect(actual.value(new BaseMatcher<Object>() {
+						@Override
+						public boolean matches(Object actualValue) {
+							if (actualValue == null) {
+								return false;
+							} else {
+								String expectedHref = (String) expected;
+								String actualHref = (String) actualValue;
+								
+								if (expectedHref.equals(actualHref)) {
+									return true;									
+								} else {
+									List<Url> expectedUrls = new UrlDetector(expectedHref, UrlDetectorOptions.Default).detect();
+									List<Url> actualUrls = new UrlDetector(actualHref, UrlDetectorOptions.Default).detect();
+									
+									return expectedUrls.equals(actualUrls);															
+								}
+							}
+						}
+
+						@Override
+						public void describeTo(Description description) {
+							description.appendValue(expected);
+						}
+					}));
+            	} else {
+                    actions.andExpect(actual.value(expected));
+            	}
             } else if (expected instanceof Map) {
                 actions.andExpect(actual.isMap());
 
                 Map<?, ?> expectedMap = (Map<?, ?>) expected;
-                actions.andExpect(actual.value(mapWithSize(expectedMap.size())));
-
+                               
                 for (Entry<?, ?> entry : expectedMap.entrySet()) {
                     String key = (String) entry.getKey();
                     Object value = entry.getValue();
                     verify(actions, path + "." + key, value);                    
-                }
+                }              
+                
+                actions.andExpect(actual.value(mapWithSize(expectedMap.size())));
             } else if (expected instanceof List) {
                 actions.andExpect(actual.isArray());
 
@@ -93,7 +129,7 @@ public class StubbyMockMvc {
         }
     }
 
-    private void execute(MockMvc mockMvc, String urlPrefix, Specification specification) throws Exception {
+    private static void execute(MockMvc mockMvc, String urlPrefix, String contextPath, Specification specification) throws Exception {
     	MockHttpServletRequestBuilder builder = null;
 
     	Request request = specification.getRequest();
@@ -127,25 +163,27 @@ public class StubbyMockMvc {
     	} else {
     	    throw new RuntimeException("Unsupported method: " + method);
     	}
-
-    	Map<String, String> query = request.getQuery();
+    	
+    	builder.contextPath(contextPath);
+    	
+    	Map<String, Object> query = request.getQuery();
     	if (query != null) {
-    		for (Entry<String, String> entry : query.entrySet()) {
+    		for (Entry<String, Object> entry : query.entrySet()) {
     			String name = entry.getKey();
-    			String value = entry.getValue();
-    			builder.param(name, value);
+    			Object value = entry.getValue();
+    			builder.param(name, String.valueOf(value));
     		}
     	}
 
-    	Map<String, String> requestHeaders = request.getHeaders();
-    	if (query != null) {
-    		for (Entry<String, String> entry : requestHeaders.entrySet()) {
+    	Map<String, Object> requestHeaders = request.getHeaders();
+    	if (requestHeaders != null) {
+    		for (Entry<String, Object> entry : requestHeaders.entrySet()) {
     			String name = entry.getKey();
-    			String value = entry.getValue();
+    			Object value = entry.getValue();
     			builder.header(name, value);
     		}
     	}
-    	
+    	   	
     	String post = request.getPost();
     	if (post != null) {
     		builder.content(post);
@@ -167,12 +205,12 @@ public class StubbyMockMvc {
     	    actions.andExpect(status().is(status));
     	}
 
-    	Map<String, String> responseHeaders = response.getHeaders();
+    	Map<String, Object> responseHeaders = response.getHeaders();
     	if (responseHeaders != null) {
-    	    for (Entry<String, String> header : responseHeaders.entrySet()) {
+    	    for (Entry<String, Object> header : responseHeaders.entrySet()) {
     	        String name = header.getKey();
-    	        String value = header.getValue();
-    	        actions.andExpect(header().string(name, value));
+    	        Object value = header.getValue();
+    	        actions.andExpect(header().string(name, String.valueOf(value)));
     	    }
     	}
 
@@ -180,10 +218,18 @@ public class StubbyMockMvc {
     	verify(actions, "$", body);
     }
 
-    public void execute(MockMvc mockMvc, String urlPrefix, String specificationsPath) throws Exception {
-    	List<Specification> specifications = read(specificationsPath);    	
+    public static void execute(MockMvc mockMvc, String urlPrefix, String contextPath, String specificationsPath) throws Exception {
+    	List<Specification> specifications = read(specificationsPath);    
+    	int index = 0;
 		for (Specification specification : specifications) {
-			execute(mockMvc, urlPrefix, specification);
-		}    	
+			try {
+				execute(mockMvc, urlPrefix, contextPath, specification);						
+			} catch (Error error) {
+				System.err.println("Error in specification " + specificationsPath + "#" + index);
+				error.printStackTrace(System.err);
+				throw error;
+			}
+			++index;
+		}
     }    
 }
